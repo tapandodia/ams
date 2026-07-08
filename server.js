@@ -6,14 +6,13 @@
    3) Run:  npm start
    4) Open: http://localhost:3000
    ============================================================================ */
-
+require('dotenv').config();
 // ======================= EDIT THESE DATABASE SETTINGS =======================
 const DB = {
-  host:     "localhost",
-  port:     5432,
-  database: "pams_db",          // the database you created in pgAdmin
-  user:     "postgres",
-  password: "MyNewPass123"         // <-- your postgres password
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost')
+       ? { rejectUnauthorized: false }
+       : false
 };
 const SERVER_PORT = 3000;
 // ============================================================================
@@ -37,7 +36,14 @@ app.use(session({
 }));
 
 app.use(express.static(path.join(__dirname, "public")));
+app.set('trust proxy', 1);   // add this line — Render sits behind a proxy
 
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'pams_secret_change_this',  // read from env
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 24 * 60 * 60 * 1000, sameSite: 'lax' }
+}));
 async function ensureSchema() {
   try {
     const insertStation = await pool.query(
@@ -531,8 +537,8 @@ app.post("/api/import", auth, async (req, res) => {
     app.listen(SERVER_PORT, () => {
       console.log("======================================================");
       console.log("  PAMS server running");
-      console.log("  Open in browser:  http://localhost:" + SERVER_PORT);
-      console.log("  Database:         " + DB.database + " @ " + DB.host + ":" + DB.port);
+      console.log("  Listening on port " + SERVER_PORT);
+      console.log("  Database:         " + (process.env.DATABASE_URL ? "remote (DATABASE_URL)" : "local"));
       console.log("======================================================");
     });
     const r = await pool.query("SELECT count(*) FROM pams.applications");
