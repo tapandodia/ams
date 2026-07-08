@@ -1,0 +1,14 @@
+{
+  "name": "pams-viramgam",
+  "version": "1.0.0",
+  "description": "Police Application Management System - Viramgam Division",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.19.0",
+    "pg": "^8.12.0"
+  }
+}

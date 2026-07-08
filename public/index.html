@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Application Management System — વિરમગામ વિભાગ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginView">
+  <div class="login-card">
+    <img class="login-logo" src="gujarat-police-logo.png" alt="Gujarat Police">
+    <h1>Application Management System<br></h1>
+    <div class="sub">વિરમગામ વિભાગ (SDPO Office, Viramgam Division)</div>
+    <div id="loginErr"></div>
+    <div class="field">
+      <label class="req">યુઝર / Office</label>
+      <select id="loginUser"></select>
+    </div>
+    <div class="field">
+      <label class="req">પાસવર્ડ / Password</label>
+      <input type="password" id="loginPass" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary btn-block" id="loginBtn">પ્રવેશ કરો — Sign in</button>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView">
+  <header class="top">
+    <div class="top-inner">
+      <img class="top-logo" src="gujarat-police-logo.png" alt="Gujarat Police">
+      <div class="brand"><b>Application Management System </b><span>VIRAMGAM DIVISION </span></div>
+      <div class="scanwrap" title="Click here, then scan the QR code with your scanner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C79B3B" stroke-width="2"><path d="M3 7V4h3M17 4h3v3M21 17v3h-3M7 21H3v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+        <input id="scanInput" placeholder="QR સ્કેન કરો / Scan or type ID + Enter">
+      </div>
+      <div class="userchip"><span class="dot"></span><span id="userLabel"></span><button id="logoutBtn">Logout</button></div>
+    </div>
+  </header>
+
+  <nav class="tabs"><div class="tabs-inner">
+    <button class="tab active" data-view="dash">ડેશબોર્ડ · Dashboard</button>
+    <button class="tab" data-view="list">અરજી યાદી · Applications</button>
+    <button class="tab" data-view="form">નવી અરજી · New Entry</button>
+    <button class="tab" data-view="import">Excel અપલોડ · Import</button>
+    <button class="tab" data-view="users" id="usersTab" style="display:none">યુઝર્સ · Users</button>
+  </div></nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dash">
+      <h2 class="pagetitle">ડેશબોર્ડ</h2>
+      <p class="pagesub" id="dashScope"></p>
+      <div class="stats">
+        <div class="stat"><div class="n" id="stTotal">0</div><div class="l">કુલ અરજીઓ · Total</div></div>
+        <div class="stat s-pend"><div class="n" id="stPend">0</div><div class="l">બાકી · Pending</div></div>
+        <div class="stat s-comp"><div class="n" id="stComp">0</div><div class="l">પૂર્ણ · Complete</div></div>
+        <div class="stat s-trans"><div class="n" id="stTrans">0</div><div class="l">SDPO ને મોકલેલ · Transferred</div></div>
+      </div>
+      <div class="chartcard" id="dashTableCard" style="display:none;margin-bottom:14px">
+        <h3>પોલીસ સ્ટેશન પ્રમાણે સારાંશ · Station-wise summary</h3>
+        <div class="tablewrap"><table style="min-width:0">
+          <thead><tr><th>પોલીસ સ્ટેશન · Station</th><th>બાકી · Pending</th><th>પૂર્ણ · Complete</th><th>SDPO સમીક્ષા · Transferred</th><th>કુલ · Total</th></tr></thead>
+          <tbody id="dashTBody"></tbody>
+        </table></div>
+      </div>
+      <div class="charts">
+        <div class="chartcard"><h3 id="chStationTitle">પોલીસ સ્ટેશન પ્રમાણે અરજીઓ · Applications by police station</h3><div class="chartbox"><canvas id="chStation"></canvas></div></div>
+        <div class="chartcard"><h3>સ્થિતિ પ્રમાણે · By status</h3><div class="chartbox"><canvas id="chStatus"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- LIST -->
+    <section class="view" id="view-list">
+      <h2 class="pagetitle">અરજી યાદી</h2>
+      <p class="pagesub">ફિલ્ટર વાપરીને પોલીસ સ્ટેશન પ્રમાણે અથવા બધા સ્ટેશનની અરજીઓ જુઓ.</p>
+      <div class="filters">
+        <div><label>પોલીસ સ્ટેશન</label><select id="fStation"><option value="">All stations</option></select></div>
+        <div><label>સ્થિતિ · Status</label><select id="fStatus"><option value="">All</option><option>Pending</option><option>Complete</option><option>Transferred</option></select></div>
+        <div><label>વર્ષ · Year</label><select id="fYear"><option value="">All</option></select></div>
+        <div><label>હેડ · Head</label><select id="fHead"><option value="">All</option><option>ઉપરી</option><option>સ્થાનિક</option></select></div>
+        <div><label>શોધ · Search</label><input id="fSearch" placeholder="નામ / વિષય / ID / IO…"></div>
+      </div>
+      <p class="count" id="listCount"></p>
+      <div id="sdpoSection" style="display:none">
+        <h3 class="listheading" id="sdpoHeading">🔍 SDPO કચેરી દ્વારા તપાસ · Under investigation by SDPO office</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>ક્રમ</th><th>ID</th><th>પોલીસ સ્ટેશન</th><th>Forwarded To</th><th>અરજદાર નામ અને સરનામું</th><th>પત્ર ક્રમાંક / તારીખ</th><th>વિષય</th><th>IO</th><th>હેડ</th><th>તારીખ</th><th>વર્ષ</th><th>સ્થિતિ</th><th></th></tr></thead>
+          <tbody id="sdpoBody"></tbody>
+        </table></div>
+      </div>
+      <h3 class="listheading" id="stationHeading" style="display:none">➤ પોલીસ સ્ટેશનને ટ્રાન્સફર · Transferred to police stations</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>ક્રમ</th><th>ID</th><th>પોલીસ સ્ટેશન</th><th>Forwarded To</th><th>અરજદાર નામ અને સરનામું</th><th>પત્ર ક્રમાંક / તારીખ</th><th>વિષય</th><th>IO</th><th>હેડ</th><th>તારીખ</th><th>વર્ષ</th><th>સ્થિતિ</th><th></th></tr></thead>
+        <tbody id="listBody"></tbody>
+      </table></div>
+    </section>
+
+    <!-- FORM -->
+    <section class="view" id="view-form">
+      <h2 class="pagetitle" id="formTitle">નવી અરજી દાખલ કરો</h2>
+      <p class="pagesub">બધી વિગતો ભરો. સેવ કર્યા પછી QR કોડ આપોઆપ બનશે અને પ્રિન્ટ કરી શકાશે.</p>
+      <div class="notice" id="formNotice"></div>
+      <div class="card"><div class="grid2">
+        <div id="transferRow" style="display:none"><label class="req">ટ્રાન્સફર કરો <span class="en">/ Forward to</span></label><select id="inTransferTo"></select></div>
+        <!-- station is fixed per login (SDPO: Viramgam Division, station: own) — kept hidden, save logic reads its value -->
+        <div style="display:none"><label class="req">પોલીસ સ્ટેશન <span class="en">/ Police station</span></label><select id="inStation"></select></div>
+        <div id="headRow" style="display:none"><label class="req">હેડ <span class="en">/ Head</span></label><select id="inHead"><option value="">— પસંદ કરો —</option><option>ઉપરી</option><option>સ્થાનિક</option></select></div>
+        <div id="statusRow" style="display:none"><label class="req">સ્થિતિ <span class="en">/ Status</span></label><select id="inStatus"></select></div>
+        <div><label class="req">અરજદારનું નામ <span class="en">/ Applicant name</span></label><input id="inAppName"></div>
+        <div><label>અરજદારનો સંપર્ક નંબર <span class="en">/ Contact (10 digits)</span></label><input id="inContact" inputmode="numeric" maxlength="10" placeholder="દા.ત. 9876543210"></div>
+        <div class="full"><label>અરજદારનું સરનામું <span class="en">/ Applicant address</span></label><textarea id="inAppAddr" rows="2"></textarea></div>
+        <div><label class="req">પત્ર ક્રમાંક અને તારીખ <span class="en">/ Letter no. &amp; date</span></label><input id="inLetter" placeholder="દા.ત. જ/વશી/125/2026, તા. 05/07/2026"></div>
+        <div><label class="req">વિષય <span class="en">/ Subject</span></label><input id="inSubject"></div>
+        <div id="ioRow"><label class="req" id="inIOLabel">IO <span class="en">/ Investigating officer</span></label><select id="inIO"><option value="">— પસંદ કરો —</option></select></div>
+        <div id="pendRow"><label>Pendency reason</label><input id="inPend" placeholder="બાકી હોવાનું કારણ"></div>
+        <div><label class="req">તારીખ <span class="en">/ Date</span></label><input type="date" id="inDate"></div>
+        <div><label class="req">વર્ષ <span class="en">/ Year</span></label><input type="number" id="inYear" min="2000" max="2100"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" id="saveBtn"> Save </button>
+        <button class="btn btn-ghost" id="resetBtn"> Clear</button>
+      </div></div>
+    </section>
+
+    <!-- IMPORT -->
+    <section class="view" id="view-import">
+      <h2 class="pagetitle">Excel માંથી ડેટા અપલોડ</h2>
+      <p class="pagesub">.xlsx / .xls / .csv ફાઇલ પસંદ કરો. કૉલમનાં નામ નીચેના ટેમ્પલેટ પ્રમાણે રાખો — પહેલા ટેમ્પલેટ ડાઉનલોડ કરી તેમાં ડેટા ભરવો સૌથી સરળ છે.</p>
+      <div class="notice" id="impNotice"></div>
+      <div class="dropzone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16243D" stroke-width="1.6"><path d="M12 16V4m0 0l-4 4m4-4l4 4"/><path d="M4 16v3a1.5 1.5 0 001.5 1.5h13A1.5 1.5 0 0020 19v-3"/></svg>
+        <p><b>Excel ફાઇલ પસંદ કરો</b></p>
+        <p><input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="max-width:320px;margin:0 auto;background:#fff"></p>
+        <p><button class="btn btn-gold btn-sm" id="tplBtn">ટેમ્પલેટ ડાઉનલોડ કરો · Download template</button></p>
+      </div>
+      <div id="importPreview"></div>
+    </section>
+
+    <!-- USERS (SDPO only) -->
+    <section class="view" id="view-users">
+      <h2 class="pagetitle">યુઝર મેનેજમેન્ટ · User Management</h2>
+      <p class="pagesub">નવા યુઝર બનાવો અથવા હાલના યુઝરનો પાસવર્ડ બદલો.</p>
+      <div class="notice" id="userNotice"></div>
+      <div class="card" style="margin-bottom:16px">
+        <h3 class="listheading" style="margin-top:0">➕ નવો યુઝર · Create user</h3>
+        <div class="grid2">
+          <div><label class="req">યુઝરનેમ <span class="en">/ Username</span></label><input id="uUsername" placeholder="દા.ત. viramgam-town-2" autocomplete="off"></div>
+          <div><label class="req">નામ <span class="en">/ Display name</span></label><input id="uName" placeholder="દા.ત. Viramgam Town PS (Writer 2)"></div>
+          <div><label class="req">રોલ <span class="en">/ Role</span></label><select id="uRole"><option value="station">Police Station</option><option value="admin">SDPO Office (admin)</option></select></div>
+          <div id="uStationRow"><label class="req">પોલીસ સ્ટેશન <span class="en">/ Station</span></label><select id="uStation"></select></div>
+          <div><label class="req">પાસવર્ડ <span class="en">/ Password (min 4)</span></label><input id="uPass" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" id="uCreateBtn">Create user</button></div>
+      </div>
+      <div class="tablewrap"><table style="min-width:0">
+        <thead><tr><th>ક્રમ</th><th>Username</th><th>નામ · Name</th><th>રોલ · Role</th><th>સ્ટેશન · Station</th><th>Active</th><th></th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table></div>
+
+      <div class="card" style="margin-top:16px">
+        <h3 class="listheading" style="margin-top:0">👮 IO મેનેજમેન્ટ · Manage IOs (પોલીસ સ્ટેશન પ્રમાણે)</h3>
+        <div class="grid2">
+          <div><label class="req">પોલીસ સ્ટેશન <span class="en">/ Station</span></label><select id="ioStation"></select></div>
+          <div><label class="req">IO નામ <span class="en">/ IO name</span></label><input id="ioName" placeholder="દા.ત. PSI A. B. Patel"></div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" id="ioAddBtn">Add IO</button></div>
+        <div class="tablewrap" style="margin-top:14px"><table style="min-width:0">
+          <thead><tr><th>ક્રમ</th><th>પોલીસ સ્ટેશન</th><th>IO નામ</th><th>Active</th><th></th></tr></thead>
+          <tbody id="iosBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ================= RECORD MODAL ================= -->
+<div class="modal-bg" id="recModal"><div class="modal">
+  <button class="close" onclick="closeModal()">✕</button>
+  <div class="rec-head">
+    <div class="qr" id="recQr"></div>
+    <div>
+      <h2 class="pagetitle" id="recStation"></h2>
+      <span class="pill" id="recStatus"></span>
+      <div><span class="rec-id" id="recId"></span></div>
+    </div>
+  </div>
+  <dl class="dl" id="recFields"></dl>
+  <div class="histbox" id="recHist"></div>
+  <div class="rec-actions" id="recActions"></div>
+</div></div>
+
+<!-- ================= PRINT AREA ================= -->
+<div id="printArea"></div>
+
+
+<script>
+/* ================= CONFIG (API version — talks to server.js → PostgreSQL) ===== */
+const STATIONS = ["Viramgam Town","Viramgam Rural","Detroj","Mandal","Vithalapur","Hansalpur","Nalsarovar"];
+// SDPO can also keep an application for its own investigation ("Viramgam Division")
+const FORWARD_TARGETS = ["Viramgam Division", ...STATIONS];
+const LOGINS = [
+  ["viramgam-town","Viramgam Town PS"],["viramgam-rural","Viramgam Rural PS"],
+  ["detroj","Detroj PS"],["mandal","Mandal PS"],["vithalapur","Vithalapur PS"],
+  ["hansalpur","Hansalpur PS"],["nalsarovar","Nalsarovar PS"],
+  ["sdpo","SDPO Office, Viramgam Division"]
+];
+const $ = id => document.getElementById(id);
+let user = null, apps = [], editingId = null, editingStatus = null, charts = {};
+let pendingOpenId = null;
+
+/* ================= API ================= */
+async function api(path, method = "GET", body) {
+  const url = "/api" + path;
+  console.log('API', method, url);
+  const headers = { "Content-Type": "application/json" };
+  const localToken = localStorage.getItem('pams_token');
+  if(localToken) headers['Authorization'] = 'Bearer ' + localToken;
+  const r = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await r.text().catch(() => "");
+  let data = {};
+  try{ data = text ? JSON.parse(text) : {}; }catch(e){ data = { __raw: text }; }
+  console.log('API resp', r.status, data);
+  if (!r.ok) {
+    const errMsg = data.error || data.__raw || r.statusText || 'Unknown error';
+    throw new Error(errMsg);
+  }
+  return data;
+}
+async function loadApps(){ apps = await api("/applications"); }
+let ios = [];
+async function loadIOs(){ try{ ios = await api("/ios"); }catch(_){ ios = []; } fillIOSelect(); }
+function fillIOSelect(){
+  const sel = $("inIO"); if(!sel || !user) return;
+  const list = user.role==="admin" ? ios : ios.filter(i=>i.active);
+  sel.innerHTML = '<option value="">— પસંદ કરો —</option>' + list.map(i=>`<option>${esc(i.name)}</option>`).join("");
+}
+
+/* ================= LOGIN ================= */
+(async function initLogin(){
+  const sel = $("loginUser");
+  const fill = list => { sel.innerHTML=""; list.forEach(([id,label]) => { const o=document.createElement("option"); o.value=id; o.textContent=label; sel.appendChild(o); }); };
+  fill(LOGINS); // static fallback shown immediately
+  try{ // live list from DB so newly created users can log in
+    const us = await api("/logins");
+    if(Array.isArray(us) && us.length) fill(us.map(u=>[u.username, u.name]));
+  }catch(_){ /* keep fallback */ }
+})();
+$("loginBtn").onclick = doLogin;
+$("loginPass").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+async function doLogin(){
+  const err = $("loginErr"); err.style.display="none";
+  $("loginBtn").disabled = true; $("loginBtn").textContent = "Connecting…";
+  try{
+    const res = await api("/login","POST",{ username:$("loginUser").value, password:$("loginPass").value });
+    user = res.user;
+    if(res.token) localStorage.setItem('pams_token', res.token);
+    $("loginView").style.display="none"; $("appView").style.display="block";
+    $("userLabel").textContent = user.label;
+    setupForRole();
+    history.replaceState({view:"dash"}, "", "#dash");
+    await Promise.all([loadApps(), loadIOs()]);
+    renderAll();
+    if(pendingOpenId){ openRecord(pendingOpenId); pendingOpenId = null; }
+  }catch(e){
+    err.style.display="block";
+    err.textContent = e.message.includes("fetch") ? "Server not reachable — is server.js running?" : e.message;
+  }
+  $("loginBtn").disabled = false; $("loginBtn").textContent = "પ્રવેશ કરો — Sign in";
+}
+$("logoutBtn").onclick = async () => { try { await api('/logout','POST'); } catch(_){}; localStorage.removeItem('pams_token'); location.reload(); };
+
+function setupForRole(){
+  const s = $("inStation"); s.innerHTML="";
+  const transferRow = $("transferRow");
+  const transferSel = $("inTransferTo");
+  const headRow = $("headRow");
+  const ioLabel = $("inIOLabel");
+  const ioRow = $("ioRow");
+  const pendRow = $("pendRow");
+  const list = user.role==="admin" ? ["Viramgam Division"] : [user.station];
+  list.forEach(st => { const o=document.createElement("option"); o.value=st; o.textContent=st; s.appendChild(o); });
+  s.disabled = true;
+  if (user.role === "admin") {
+    transferRow.style.display = "block";
+    transferSel.innerHTML = '<option value="">— પસંદ કરો —</option>'
+      + '<option value="Viramgam Division">Viramgam Division (SDPO તપાસ · own investigation)</option>'
+      + STATIONS.map(st=>`<option>${st}</option>`).join("");
+    headRow.style.display = "block";
+    transferSel.value = "";
+    ioRow.style.display = "none";
+    pendRow.style.display = "none";
+  } else {
+    transferRow.style.display = "none";
+    headRow.style.display = "none";
+    ioRow.style.display = "block";
+    pendRow.style.display = "block";
+    ioLabel.textContent = 'કોના તરફ ટ્રાન્સફર (IO) / Transfer to (IO)';
+  }
+  $("usersTab").style.display = user.role==="admin" ? "" : "none";
+  const f = $("fStation"); f.innerHTML = user.role==="admin" ? '<option value="">All stations</option>' : "";
+  (user.role==="admin"?STATIONS:[user.station]).forEach(st => { const o=document.createElement("option"); o.value=st; o.textContent=st; f.appendChild(o); });
+  f.disabled = user.role!=="admin";
+  $("dashScope").textContent = user.role==="admin" ? "સમગ્ર વિરમગામ વિભાગ — બધા 7 પોલીસ સ્ટેશન (Live database)" : user.station + " પોલીસ સ્ટેશન (Live database)";
+  $("inDate").valueAsDate = new Date();
+  $("inYear").value = new Date().getFullYear();
+}
+
+/* ================= HELPERS ================= */
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtDate(d){ if(!d) return "—"; const p=String(d).slice(0,10).split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : d; }
+function guDigits(s){ const d="૦૧૨૩૪૫૬૭૮૯"; return String(s??"").replace(/\d/g, x=>d[+x]); }
+
+/* ================= TABS ================= */
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => showView(t.dataset.view));
+function showView(v, push=true){
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.view===v));
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("active", s.id==="view-"+v));
+  if(v==="dash") renderDash();
+  if(v==="list") renderList();
+  if(v==="users"){ renderUsers(); renderIOs(); }
+  // keep browser history in sync so the Back button moves between tabs
+  // instead of leaving the app
+  if(push && location.hash !== "#"+v) history.pushState({view:v}, "", "#"+v);
+}
+window.addEventListener("popstate", e => {
+  if(!user) return;
+  if($("recModal").classList.contains("open")) $("recModal").classList.remove("open");
+  const v = (e.state && e.state.view) || (location.hash || "#dash").slice(1);
+  if(document.getElementById("view-"+v)) showView(v, false);
+});
+function renderAll(){ renderDash(); renderList(); renderYearFilter(); }
+
+/* ================= DASHBOARD ================= */
+function renderDash(){
+  const v = apps;
+  $("stTotal").textContent = v.length;
+  $("stPend").textContent  = v.filter(a=>a.status==="Pending").length;
+  $("stComp").textContent  = v.filter(a=>a.status==="Complete").length;
+  $("stTrans").textContent = v.filter(a=>a.status==="Transferred").length;
+  // first bar chart: SDPO sees station-wise; a station login sees IO-wise
+  let labels, by;
+  if(user.role==="admin"){
+    labels = STATIONS;
+    by = s => labels.map(st => v.filter(a=>(a.station===st || a.transferTo===st) && a.status===s).length);
+    $("chStationTitle").textContent = "પોલીસ સ્ટેશન પ્રમાણે અરજીઓ · Applications by police station";
+  } else {
+    const ioOf = a => (a.io||"").trim() || "(IO નથી · No IO)";
+    labels = [...new Set(v.map(ioOf))]
+      .sort((x,y)=> v.filter(a=>ioOf(a)===y).length - v.filter(a=>ioOf(a)===x).length);
+    by = s => labels.map(io => v.filter(a=>ioOf(a)===io && a.status===s).length);
+    $("chStationTitle").textContent = "IO પ્રમાણે અરજીઓ · Applications assigned to IO";
+  }
+  if(charts.st) charts.st.destroy();
+  charts.st = new Chart($("chStation"), {
+    type:"bar",
+    data:{ labels:labels, datasets:[
+      {label:"Pending",     data:by("Pending"),     backgroundColor:"#E0A83A"},
+      {label:"Complete",    data:by("Complete"),    backgroundColor:"#2E9C64"},
+      {label:"Transferred", data:by("Transferred"), backgroundColor:"#3D6FBF"}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{stacked:true}, y:{stacked:true, ticks:{precision:0}} },
+      plugins:{ legend:{position:"bottom"} } }
+  });
+  if(charts.ss) charts.ss.destroy();
+  charts.ss = new Chart($("chStatus"), {
+    type:"doughnut",
+    data:{ labels:["Pending","Complete","Transferred"],
+      datasets:[{ data:[+$("stPend").textContent, +$("stComp").textContent, +$("stTrans").textContent],
+        backgroundColor:["#E0A83A","#2E9C64","#3D6FBF"] }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:"bottom"}} }
+  });
+  // SDPO only: station-wise summary table — each application counted in exactly
+  // one row (its current holder), so the bottom total matches the stat cards
+  if(user.role==="admin"){
+    const rowOf = a => (a.transferTo==="Viramgam Division" || (a.station==="Viramgam Division" && !a.transferTo))
+      ? "Viramgam Division" : (a.transferTo || a.station);
+    const names = [...STATIONS, "Viramgam Division"];
+    const cnt = {}; names.forEach(nm => cnt[nm] = {Pending:0, Complete:0, Transferred:0});
+    v.forEach(a => { const nm = rowOf(a); if(cnt[nm] && cnt[nm][a.status] != null) cnt[nm][a.status]++; });
+    const tot = {Pending:0, Complete:0, Transferred:0};
+    const rowsHtml = names.map(nm => {
+      const c = cnt[nm], t = c.Pending + c.Complete + c.Transferred;
+      tot.Pending += c.Pending; tot.Complete += c.Complete; tot.Transferred += c.Transferred;
+      const label = nm === "Viramgam Division" ? "SDPO Office (Viramgam Division)" : nm;
+      return `<tr><td>${esc(label)}</td><td>${c.Pending}</td><td>${c.Complete}</td><td>${c.Transferred}</td><td><b>${t}</b></td></tr>`;
+    }).join("");
+    $("dashTBody").innerHTML = rowsHtml +
+      `<tr class="totrow"><td>કુલ · Total</td><td>${tot.Pending}</td><td>${tot.Complete}</td><td>${tot.Transferred}</td><td>${tot.Pending + tot.Complete + tot.Transferred}</td></tr>`;
+    $("dashTableCard").style.display = "block";
+  } else {
+    $("dashTableCard").style.display = "none";
+  }
+}
+
+/* ================= LIST ================= */
+["fStation","fStatus","fYear","fHead"].forEach(id => $(id).onchange = renderList);
+$("fSearch").oninput = renderList;
+function renderYearFilter(){
+  const ys = [...new Set(apps.map(a=>a.year).filter(Boolean))].sort().reverse();
+  $("fYear").innerHTML = '<option value="">All</option>' + ys.map(y=>`<option>${y}</option>`).join("");
+}
+function renderList(){
+  let rows = apps;
+  const st=$("fStation").value, s=$("fStatus").value, y=$("fYear").value, h=$("fHead").value, q=$("fSearch").value.trim().toLowerCase();
+  if(st) rows = rows.filter(a=>a.station===st || a.transferTo===st);
+  if(s)  rows = rows.filter(a=>a.status===s);
+  if(y)  rows = rows.filter(a=>String(a.year)===y);
+  if(h)  rows = rows.filter(a=>a.head===h);
+  if(q)  rows = rows.filter(a => [a.id,a.applicant,a.contact,a.subject,a.io,a.letter,a.pend].join(" ").toLowerCase().includes(q));
+  $("listCount").textContent = rows.length + " અરજી મળી · records found";
+  const rowHtml = (a,i) => `<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td style="font-family:monospace;font-size:12px">${esc(a.id)}</td>
+    <td>${esc(a.station)}</td><td>${esc(a.transferTo)}</td><td>${esc(a.applicant)}</td><td>${esc(a.letter)}</td>
+    <td>${esc(a.subject)}</td><td>${esc(a.io)}</td><td>${esc(a.head)}</td>
+    <td>${fmtDate(a.date)}</td><td>${esc(a.year)}</td>
+    <td><span class="pill p-${a.status}">${a.status}</span></td>
+    <td><button class="btn btn-ghost btn-sm" onclick="openRecord('${a.id}')">View</button></td>
+  </tr>`;
+  const emptyRow = '<tr><td colspan="13" class="empty">કોઈ અરજી મળી નથી · No applications found.</td></tr>';
+  if(user.role==="admin"){
+    // two compartments: SDPO's own investigations vs those forwarded to police stations
+    const isSdpo = a => a.transferTo==="Viramgam Division" || (a.station==="Viramgam Division" && !a.transferTo);
+    const sdpoRows = rows.filter(isSdpo), stRows = rows.filter(a=>!isSdpo(a));
+    $("sdpoSection").style.display="block"; $("stationHeading").style.display="block";
+    $("sdpoHeading").textContent = "🔍 SDPO કચેરી દ્વારા તપાસ · Under investigation by SDPO office ("+sdpoRows.length+")";
+    $("stationHeading").textContent = "➤ પોલીસ સ્ટેશનને ટ્રાન્સફર · Transferred to police stations ("+stRows.length+")";
+    $("sdpoBody").innerHTML = sdpoRows.length ? sdpoRows.map(rowHtml).join("") : emptyRow;
+    $("listBody").innerHTML = stRows.length ? stRows.map(rowHtml).join("") : emptyRow;
+  } else {
+    $("sdpoSection").style.display="none"; $("stationHeading").style.display="none";
+    $("listBody").innerHTML = rows.length ? rows.map(rowHtml).join("") : emptyRow;
+  }
+}
+
+/* ================= FORM ================= */
+$("resetBtn").onclick = clearForm;
+function clearForm(){
+  editingId = null; editingStatus = null;
+  $("formTitle").textContent = "નવી અરજી દાખલ કરો";
+  ["inAppName","inAppAddr","inContact","inLetter","inSubject","inIO","inPend"].forEach(id=>$(id).value="");
+  $("inTransferTo").value=""; $("inHead").value="";
+  $("statusRow").style.display="none"; $("inStatus").innerHTML="";
+  $("inDate").valueAsDate=new Date(); $("inYear").value=new Date().getFullYear();
+  $("formNotice").className="notice";
+}
+$("saveBtn").onclick = async () => {
+  const rec = {
+    // fall back to the login's own station: for SDPO-forwarded records the hidden
+    // station select can't hold "Viramgam Division" (server decides station anyway)
+    station: $("inStation").value || (user.role==="admin" ? "Viramgam Division" : user.station),
+    transferTo: $("inTransferTo").value,
+    applicantName: $("inAppName").value.trim(),
+    applicantAddress: $("inAppAddr").value.trim(),
+    contact: $("inContact").value.trim(),
+    letter: $("inLetter").value.trim(), subject: $("inSubject").value.trim(),
+    io: $("inIO").value.trim(), pend: $("inPend").value.trim(),
+    head: $("inHead").value, date: $("inDate").value, year: $("inYear").value
+  };
+  const n = $("formNotice");
+    // address is optional (older/imported rows have none); IO is required only
+    // when a station creates a new entry, not when editing an existing record
+    if(!rec.station || !rec.applicantName || !rec.letter || !rec.subject || !rec.date || !rec.year ||
+      (user.role === "admin" && !rec.transferTo) || (user.role === "admin" && !rec.head) ||
+      (user.role !== "admin" && !editingId && !rec.io)){
+    n.className="notice err"; n.textContent="⚠ કૃપા કરીને * વાળા બધા ફરજિયાત ફિલ્ડ ભરો. Please fill all required fields."; return;
+  }
+  if(rec.contact && !/^\d{10}$/.test(rec.contact)){
+    n.className="notice err"; n.textContent="⚠ સંપર્ક નંબર બરાબર 10 આંકડાનો હોવો જોઈએ. Contact number must be exactly 10 digits."; return;
+  }
+  const showsStatus = $("statusRow").style.display !== "none";
+  const newStatus = showsStatus ? $("inStatus").value : null;
+  $("saveBtn").disabled = true;
+  try{
+    let id = editingId;
+    if(editingId){
+      await api("/applications/"+editingId, "PUT", rec);
+      if(newStatus && newStatus !== editingStatus) await api("/applications/"+editingId+"/status", "POST", {status:newStatus});
+      n.textContent="✔ અરજી અપડેટ થઈ.";
+    }
+    else { const r = await api("/applications","POST",rec); id = r.id; n.textContent="✔ અરજી સેવ થઈ · Saved with ID "+id; }
+    n.className="notice ok";
+    await loadApps(); renderAll(); clearForm(); openRecord(id);
+  }catch(e){ n.className="notice err"; n.textContent="⚠ "+e.message; }
+  $("saveBtn").disabled = false;
+};
+
+/* ================= RECORD MODAL ================= */
+window.openRecord = async function(id){
+  let a;
+  try{ a = await api("/applications/"+encodeURIComponent(id)); }
+  catch(e){ alert(e.message); return; }
+  $("recStation").textContent = a.station;
+  const pill = $("recStatus"); pill.className="pill p-"+a.status; pill.textContent=a.status;
+  $("recId").textContent = a.id;
+  $("recQr").innerHTML=""; const recUrl = window.location.origin + window.location.pathname + '?id='+encodeURIComponent(a.id);
+  new QRCode($("recQr"), {text:recUrl, width:110, height:110, correctLevel:QRCode.CorrectLevel.M});
+  $("recFields").innerHTML = [
+    ["અરજદારનું નામ", a.applicantName],["અરજદારનું સરનામું", a.applicantAddress||"—"],
+    ["સંપર્ક નંબર", a.contact||"—"],["પત્ર ક્રમાંક અને તારીખ", a.letter],
+    ["વિષય", a.subject],["IO", a.io],["Pendency reason", a.pend||"—"],
+    ["હેડ", a.head],["તારીખ", fmtDate(a.date)],["વર્ષ", a.year],["Entered by", a.createdBy||"—"]
+  ].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  $("recHist").innerHTML = "<b>History:</b>" + (a.history||[]).map(h=>`<div>• ${new Date(h.t).toLocaleString("en-IN")} — ${esc(h.act)}</div>`).join("");
+  const acts = $("recActions"); acts.innerHTML="";
+  const btn = (label, cls, fn) => { const b=document.createElement("button"); b.className="btn "+cls+" btn-sm"; b.textContent=label; b.onclick=fn; acts.appendChild(b); };
+  btn("🖨 પ્રિન્ટ · Print with QR","btn-gold",()=>printRecord(a));
+  btn("✎ Edit","btn-ghost",()=>{ closeModal(); startEdit(a); });
+  // SDPO-forwarded application: investigation done -> send back to SDPO for review
+  if(a.status==="Pending" && user.role!=="admin" && a.station!==user.station)
+    btn("➤ SDPO ને મોકલો · Transfer to SDPO","btn-info", ()=>changeStatus(a.id,"Transferred"));
+  // Station's own (સ્થાનિક) application: close or reopen it directly — no SDPO involved
+  if(user.role!=="admin" && a.station===user.station){
+    if(a.status==="Pending") btn("✔ પૂર્ણ · Mark Complete","btn-ok", ()=>changeStatus(a.id,"Complete"));
+    if(a.status==="Complete") btn("↩ ફરી ખોલો · Reopen","btn-ghost", ()=>changeStatus(a.id,"Pending"));
+  }
+  // SDPO reviews a Transferred application via the Status field on the Edit form (see startEdit)
+  if(user.role==="admin") btn("🗑 Delete","btn-danger", ()=>delRecord(a.id));
+  $("recModal").classList.add("open");
+};
+window.closeModal = () => $("recModal").classList.remove("open");
+$("recModal").addEventListener("click", e=>{ if(e.target.id==="recModal") closeModal(); });
+
+async function changeStatus(id, status){
+  try{ await api("/applications/"+encodeURIComponent(id)+"/status","POST",{status});
+    await loadApps(); renderAll(); openRecord(id);
+  }catch(e){ alert(e.message); }
+}
+async function delRecord(id){
+  if(!confirm("આ અરજી કાયમ માટે ડિલીટ કરવી છે? This cannot be undone.")) return;
+  try{ await api("/applications/"+encodeURIComponent(id),"DELETE");
+    closeModal(); await loadApps(); renderAll();
+  }catch(e){ alert(e.message); }
+}
+function startEdit(a){
+  editingId = a.id; editingStatus = a.status;
+  $("formTitle").textContent = "અરજી સુધારો · Edit "+a.id;
+  $("inStation").value=a.station; $("inTransferTo").value=a.transferTo||"";
+  $("inAppName").value=a.applicantName||""; $("inAppAddr").value=a.applicantAddress||"";
+  $("inContact").value=a.contact||""; $("inLetter").value=a.letter;
+  $("inSubject").value=a.subject; $("inPend").value=a.pend;
+  // IO dropdown: keep record's existing IO selectable even if it isn't in the
+  // managed list (legacy free-text entries)
+  fillIOSelect();
+  const ioSel = $("inIO"), ioVal = (a.io||"").trim();
+  if(ioVal && ![...ioSel.options].some(o=>o.value===ioVal)){
+    const o=document.createElement("option"); o.value=ioVal; o.textContent=ioVal; ioSel.appendChild(o);
+  }
+  ioSel.value = ioVal;
+  $("inHead").value=a.head; $("inDate").value=String(a.date).slice(0,10); $("inYear").value=a.year;
+  // Status field, per role:
+  //  - SDPO reviewing a Transferred application: Complete, or Return for re-investigation
+  //  - Station on a Pending application: transfer back to SDPO office once investigation is over
+  const sel = $("inStatus");
+  if(user.role==="admin" && a.status==="Transferred"){
+    sel.innerHTML = `<option value="Transferred">સમીક્ષા હેઠળ · Under review (no change)</option>
+      <option value="Complete">✔ પૂર્ણ · Complete</option>
+      <option value="Pending">↩ પરત (પુનઃ તપાસ માટે) · Return for re-investigation</option>`;
+    sel.value = "Transferred";
+    $("statusRow").style.display = "block";
+  } else if(user.role==="admin" && a.status==="Pending" && a.transferTo==="Viramgam Division"){
+    // SDPO investigating this application itself: can close it directly
+    sel.innerHTML = `<option value="Pending">તપાસ ચાલુ · Under investigation (no change)</option>
+      <option value="Complete">✔ પૂર્ણ · Complete</option>`;
+    sel.value = "Pending";
+    $("statusRow").style.display = "block";
+  } else if(user.role!=="admin" && a.status==="Pending"){
+    // own (સ્થાનિક) application: station closes it directly, no SDPO involved;
+    // SDPO-forwarded ones can only be sent back to SDPO for review
+    const own = a.station === user.station;
+    sel.innerHTML = `<option value="Pending">તપાસ ચાલુ · Under investigation (no change)</option>`
+      + (own ? `<option value="Complete">✔ પૂર્ણ · Complete</option>`
+             : `<option value="Transferred">➤ SDPO કચેરીને ટ્રાન્સફર કરો · Transfer to SDPO office</option>`);
+    sel.value = "Pending";
+    $("statusRow").style.display = "block";
+  } else if(user.role!=="admin" && a.status==="Complete" && a.station===user.station){
+    // station can reopen its own completed application
+    sel.innerHTML = `<option value="Complete">પૂર્ણ · Complete (no change)</option>
+      <option value="Pending">↩ ફરી ખોલો · Reopen (Pending)</option>`;
+    sel.value = "Complete";
+    $("statusRow").style.display = "block";
+  } else {
+    $("statusRow").style.display = "none";
+  }
+  showView("form");
+}
+
+/* ================= PRINT ================= */
+function printRecord(a){
+  const pa = $("printArea");
+  const isAdmin = user.role === "admin";
+  // SDPO print: simplified card — header "અરજી વિગત", police station shows the
+  // station the application was forwarded to, and no IO / pendency / status rows.
+  const heading = isAdmin ? "અરજી વિગત - વિરમગામ વિભાગ" : "અરજી પહોંચ / Application Record — વિરમગામ વિભાગ";
+  const stationShown = isAdmin ? (a.transferTo || a.station) : a.station;
+  const rows = [
+    ["Application ID", esc(a.id)],
+    ["પોલીસ સ્ટેશન", esc(stationShown)],
+    ["અરજદારનું નામ", esc(a.applicantName)],
+    ["અરજદારનું સરનામું", esc(a.applicantAddress||"—")],
+    ["સંપર્ક નંબર", esc(a.contact||"—")],
+    ["પત્ર ક્રમાંક અને તારીખ", esc(a.letter)],
+    ["વિષય", esc(a.subject)],
+    ...(isAdmin ? [] : [
+      ["IO", esc(a.io)],
+      ["Pendency reason", esc(a.pend||"—")]
+    ]),
+    ["હેડ", esc(a.head)],
+    ["તારીખ / વર્ષ", fmtDate(a.date) + " / " + esc(a.year)],
+    ...(isAdmin ? [] : [["સ્થિતિ / Status", esc(a.status)]])
+  ];
+  // SDPO print page 1: forwarding letter to the police station (matches the
+  // office's standard અરજી ફોરવર્ડિંગ format); page 2 is the detail card below.
+  const fwdPage = !isAdmin ? "" : `<div class="fwd">
+    <div class="fwd-head">
+      <img src="gujarat-police-logo.png" alt="Gujarat Police" style="width:78px">
+      <div class="fwd-office"><u>નાયબ પોલીસ અધિક્ષકશ્રીની કચેરી વિરમગામ<br>વિભાગ વિરમગામ જિ.અમદાવાદ ગ્રામ્ય</u><br><u>ફોન નં.૦૨૭૧૫-૨૩૩૬૨૭</u><br>E-mail: sdpo-vgm-ahd@gujarat.gov.in</div>
+    </div>
+    <p class="fwd-num">ક્રમાંક:આર.બી/ના.પો.અધીશ્રી/${esc(a.applicantName)}/યોગ્ય કાર્યવાહી/&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/${guDigits(a.year)}</p>
+    <p class="fwd-date">વિરમગામ વિભાગની કચેરી તા ${guDigits(fmtDate(a.date))}</p>
+    <p class="fwd-ind"><b><u>વિષય-</u></b>&nbsp; કાયદેસરની કાર્યવાહી કરવા બાબત.</p>
+    <p class="fwd-ind"><b><u>હવાલો</u>:-</b> અરજી <b>${esc(a.letter)}</b></p>
+    <p class="fwd-ind2">અન્વયે</p>
+    <p class="fwd-body">ઉપરોકત વિષય, હવાલા અને સંદર્ભ અન્વયે જણાવવાનુ કે, અરજદારશ્રી <b>${esc(a.applicantName)}, ${esc(a.applicantAddress)}</b> નાઓની રજુઆત વાળી અરજી ઉપરોકત હવાલાવાળા પત્ર ક્રમાંકથી અત્રેની કચેરી ખાતે મળેલ છે.</p>
+    <p class="fwd-body">અરજદારશ્રી નાઓએ પોતાની અરજીમાં કરેલ રજુઆત બાબતે અરજદારશ્રીનાઓનુ નિવેદન મેળવી નિયમોનુસાર યોગ્ય કાર્યવાહી કરી કરેલ કાર્યવાહીનો અહેવાલ દિન-૦૫ અત્રેની કચેરી ખાતે મોકલી આપવા સુચના છે.</p>
+    <div class="fwd-sign"><div>(તપન ડોડીયા)<br>ઇ.નાયબ પોલીસ અધીક્ષક<br>વિરમગામ વિભાગ વિરમગામ</div></div>
+    <div class="fwd-to">પ્રતિ,<br>પોલીસ ઇન્સ્પેકટરશ્રી<br><b>${esc(stationShown)} પોલીસ સ્ટેશન</b></div>
+  </div>`;
+  pa.innerHTML = fwdPage + `<div class="pc">
+    <div class="pc-head">
+      <img src="gujarat-police-logo.png" alt="Gujarat Police" style="width:52px">
+      <div><h1>${heading}</h1><p>SDPO Office, Viramgam Division · ${esc(stationShown)} Police Station</p></div>
+    </div>
+    <div class="pc-body">
+      <div class="pc-fields"><table>
+        ${rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("")}
+      </table></div>
+      <div class="pc-qr"><div id="printQr"></div><div class="id">${esc(a.id)}</div></div>
+    </div>
+    <div class="pc-foot"><span>Printed: ${new Date().toLocaleString("en-IN")} by ${esc(user.label)}</span><span>Scan QR to open this record</span></div>
+  </div>`;
+  new QRCode($("printQr"), {text:a.id, width:130, height:130, correctLevel:QRCode.CorrectLevel.M});
+  // replace print QR with deep-link URL so mobile camera can open the record directly
+  const printUrl = window.location.origin + window.location.pathname + '?id='+encodeURIComponent(a.id);
+  new QRCode($("printQr"), {text:printUrl, width:130, height:130, correctLevel:QRCode.CorrectLevel.M});
+  setTimeout(()=>window.print(), 400);
+}
+
+/* ================= SCAN ================= */
+$("scanInput").addEventListener("keydown", e => {
+  if(e.key!=="Enter") return;
+  let code = $("scanInput").value || "";
+  $("scanInput").value = "";
+  code = String(code).trim();
+  if(!code) return;
+  // If scanner returned a full URL, extract useful parts (query id or last path segment)
+  try{
+    const u = new URL(code);
+    const qid = u.searchParams.get('id') || u.searchParams.get('q') || u.searchParams.get('code');
+    if(qid) code = qid;
+    else {
+      const parts = u.pathname.split('/').filter(Boolean);
+      if(parts.length) code = parts[parts.length-1];
+    }
+  }catch(_){ /* not a URL, proceed */ }
+  // Strip non-printable characters that some scanners include
+  code = code.replace(/[^\x20-\x7E]/g, '').trim();
+  if(code) openRecord(code);
+});
+
+// If page loaded with ?id=... deep-link, store or open after login
+try{
+  const qp = new URLSearchParams(window.location.search);
+  const deep = qp.get('id');
+  if(deep){ if(user) openRecord(deep); else pendingOpenId = deep; }
+}catch(_){ }
+
+// Try to restore session on page load (if cookie/session exists)
+(async function restoreSession(){
+  try{
+    const r = await api('/me','GET');
+    user = r.user;
+    $("loginView").style.display="none"; $("appView").style.display="block";
+    $("userLabel").textContent = user.label;
+    setupForRole();
+    history.replaceState({view:"dash"}, "", "#dash");
+    await Promise.all([loadApps(), loadIOs()]); renderAll();
+    if(pendingOpenId){ openRecord(pendingOpenId); pendingOpenId = null; }
+  }catch(_){ /* not logged in */ }
+})();
+
+/* ================= USERS (SDPO only) ================= */
+$("uRole").onchange = () => { $("uStationRow").style.display = $("uRole").value==="station" ? "block" : "none"; };
+async function renderUsers(){
+  if(!user || user.role!=="admin") return;
+  if(!$("uStation").options.length) $("uStation").innerHTML = STATIONS.map(s=>`<option>${s}</option>`).join("");
+  const tb = $("usersBody");
+  try{
+    const us = await api("/users");
+    tb.innerHTML = us.map((u,i)=>`<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-family:monospace;font-size:12.5px">${esc(u.username)}</td>
+      <td>${esc(u.name)}</td>
+      <td>${u.role==="admin" ? "SDPO (admin)" : "Police Station"}</td>
+      <td>${esc(u.station||"—")}</td>
+      <td>${u.active ? "✔" : "✖"}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="changeUserPass(${u.id},'${esc(u.username)}')">🔑 પાસવર્ડ બદલો · Change password</button></td>
+    </tr>`).join("");
+  }catch(e){ tb.innerHTML = `<tr><td colspan="7" class="empty">${esc(e.message)}</td></tr>`; }
+}
+window.changeUserPass = async function(id, uname){
+  const p = prompt("'"+uname+"' માટે નવો પાસવર્ડ દાખલ કરો (ઓછામાં ઓછા 4 અક્ષર):");
+  if(p===null) return;
+  if(p.trim().length<4){ alert("⚠ પાસવર્ડ ઓછામાં ઓછો 4 અક્ષરનો હોવો જોઈએ."); return; }
+  try{
+    await api("/users/"+id+"/password","POST",{password:p.trim()});
+    alert("✔ '"+uname+"' નો પાસવર્ડ બદલાઈ ગયો.");
+  }catch(e){ alert("⚠ "+e.message); }
+};
+$("uCreateBtn").onclick = async () => {
+  const n = $("userNotice");
+  const body = {
+    username: $("uUsername").value.trim(), name: $("uName").value.trim(),
+    role: $("uRole").value, station: $("uStation").value, password: $("uPass").value
+  };
+  if(!body.username || !body.name || !body.password || (body.role==="station" && !body.station)){
+    n.className="notice err"; n.textContent="⚠ કૃપા કરીને બધા ફરજિયાત ફિલ્ડ ભરો."; return;
+  }
+  if(body.password.length<4){ n.className="notice err"; n.textContent="⚠ પાસવર્ડ ઓછામાં ઓછો 4 અક્ષરનો હોવો જોઈએ."; return; }
+  $("uCreateBtn").disabled = true;
+  try{
+    await api("/users","POST",body);
+    n.className="notice ok"; n.textContent="✔ યુઝર બની ગયો: "+body.username;
+    ["uUsername","uName","uPass"].forEach(id=>$(id).value="");
+    renderUsers();
+  }catch(e){ n.className="notice err"; n.textContent="⚠ "+e.message; }
+  $("uCreateBtn").disabled = false;
+};
+
+/* ================= IO MANAGEMENT (SDPO only) ================= */
+async function renderIOs(){
+  if(!user || user.role!=="admin") return;
+  if(!$("ioStation").options.length) $("ioStation").innerHTML = STATIONS.map(s=>`<option>${s}</option>`).join("");
+  const tb = $("iosBody");
+  try{
+    ios = await api("/ios");
+    fillIOSelect();
+    tb.innerHTML = ios.map((io,i)=>`<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${esc(io.station)}</td><td>${esc(io.name)}</td>
+      <td>${io.active ? "✔" : "✖"}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="renameIO(${io.id},'${esc(io.name)}')">✎ Edit</button>
+          <button class="btn ${io.active?'btn-danger':'btn-ok'} btn-sm" onclick="toggleIO(${io.id},${!io.active})">${io.active?'Disable':'Enable'}</button></td>
+    </tr>`).join("") || '<tr><td colspan="5" class="empty">કોઈ IO ઉમેરેલ નથી · No IOs added yet.</td></tr>';
+  }catch(e){ tb.innerHTML = `<tr><td colspan="5" class="empty">${esc(e.message)}</td></tr>`; }
+}
+window.renameIO = async function(id, cur){
+  const nm = prompt("IO નું નવું નામ · New IO name:", cur);
+  if(nm===null) return;
+  if(!nm.trim()){ alert("⚠ નામ ખાલી ન હોઈ શકે."); return; }
+  try{ await api("/ios/"+id,"PUT",{name:nm.trim()}); renderIOs(); }catch(e){ alert("⚠ "+e.message); }
+};
+window.toggleIO = async function(id, active){
+  try{ await api("/ios/"+id,"PUT",{active}); renderIOs(); }catch(e){ alert("⚠ "+e.message); }
+};
+$("ioAddBtn").onclick = async () => {
+  const n = $("userNotice");
+  const station = $("ioStation").value, name = $("ioName").value.trim();
+  if(!name){ n.className="notice err"; n.textContent="⚠ IO નામ દાખલ કરો."; return; }
+  try{
+    await api("/ios","POST",{station,name});
+    $("ioName").value="";
+    n.className="notice ok"; n.textContent="✔ IO ઉમેરાયો: "+name+" ("+station+")";
+    renderIOs();
+  }catch(e){ n.className="notice err"; n.textContent="⚠ "+e.message; }
+};
+
+/* ================= EXCEL IMPORT (mirrors the New Entry form, per role) ================= */
+// Admin/SDPO New Entry form only shows: Forward to, Applicant, Letter, Subject, Date, Year
+// (Police station is fixed to Viramgam Division, Head is forced, IO/Pendency are hidden).
+// Station New Entry form only shows: Applicant, Letter, Subject, IO (Transfer to), Pendency, Date, Year
+// (Police station is fixed to their own station, Head is hidden/defaulted).
+function tplHeaders(){
+  return user.role==="admin"
+    ? ["ટ્રાન્સફર કરો / Forward to","અરજદાર નામ અને સરનામું","પત્ર ક્રમાંક અને તારીખ","વિષય","તારીખ","વર્ષ"]
+    : ["અરજદાર નામ અને સરનામું","પત્ર ક્રમાંક અને તારીખ","વિષય","IO / ટ્રાન્સફર","Pendency Reason","તારીખ","વર્ષ"];
+}
+function tplSample(){
+  return user.role==="admin"
+    ? ["Viramgam Town","રમેશભાઈ પટેલ, વિરમગામ","જ/વશી/101/2026, તા. 01/07/2026","જમીન બાબત","01/07/2026","2026"]
+    : ["રમેશભાઈ પટેલ, વિરમગામ","જ/વશી/101/2026, તા. 01/07/2026","જમીન બાબત","PSI A. B. Patel","નિવેદન બાકી","01/07/2026","2026"];
+}
+$("tplBtn").onclick = () => {
+  const headers = tplHeaders();
+  const ws = XLSX.utils.aoa_to_sheet([headers, tplSample()]);
+  ws["!cols"] = headers.map(()=>({wch:26}));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Applications");
+  XLSX.writeFile(wb, "PAMS-template.xlsx");
+};
+function matchCol(headers, keys){
+  const H = headers.map(h=>String(h).toLowerCase().trim());
+  for(const k of keys){ const i = H.findIndex(h=>h===k); if(i>-1) return i; }        // exact match first
+  for(const k of keys){ const i = H.findIndex(h=>h.includes(k)); if(i>-1) return i; } // then partial
+  return -1;
+}
+function excelDate(v){
+  if(v==null||v==="") return "";
+  if(typeof v==="number"){ const d=XLSX.SSF.parse_date_code(v); if(d) return `${d.y}-${String(d.m).padStart(2,"0")}-${String(d.d).padStart(2,"0")}`; }
+  const s=String(v).trim(); const m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if(m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+  return s;
+}
+$("excelFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ev => {
+    try{
+      const wb = XLSX.read(new Uint8Array(ev.target.result), {type:"array"});
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:""});
+      if(rows.length<2) throw "ફાઇલમાં ડેટા નથી · No data rows found.";
+      const hd = rows[0];
+      const isAdmin = user.role === "admin";
+      const ci = {
+        transferTo: matchCol(hd,["ટ્રાન્સફર","transfer","forward","station","સ્ટેશન"]),
+        applicant: matchCol(hd,["અરજદાર","applicant","name"]),
+        letter: matchCol(hd,["પત્ર","letter"]), subject: matchCol(hd,["વિષય","subject"]),
+        io: matchCol(hd,["io"]), pend: matchCol(hd,["pend","બાકી"]),
+        date: matchCol(hd,["તારીખ","date"]), year: matchCol(hd,["વર્ષ","year"])
+      };
+      const recs=[], errs=[];
+      rows.slice(1).forEach((r,idx)=>{
+        if(r.every(c=>String(c).trim()==="")) return;
+        const rowNo = idx + 2;
+        const applicant = ci.applicant>-1?String(r[ci.applicant]).trim():"";
+        const letter = ci.letter>-1?String(r[ci.letter]).trim():"";
+        const subject = ci.subject>-1?String(r[ci.subject]).trim():"";
+        const dt = excelDate(ci.date>-1?r[ci.date]:"");
+        const year = ci.year>-1&&String(r[ci.year]).trim()?String(r[ci.year]).trim():(dt?dt.slice(0,4):"");
+        if (isAdmin) {
+          // matches the admin New Entry form: Forward to, Applicant, Letter, Subject, Date, Year
+          const raw = ci.transferTo>-1 ? String(r[ci.transferTo]).trim() : "";
+          const found = FORWARD_TARGETS.find(x=>x.toLowerCase()===raw.toLowerCase());
+          if(!found){ errs.push("Row "+rowNo+": અજાણ્યું/ખૂટતું 'Forward to' પોલીસ સ્ટેશન '"+raw+"'"); return; }
+          if(!applicant||!letter||!subject||!dt||!year){ errs.push("Row "+rowNo+": ફરજિયાત ફિલ્ડ ખૂટે છે (અરજદાર/પત્ર/વિષય/તારીખ/વર્ષ)"); return; }
+          recs.push({ transferTo: found, applicant, letter, subject, date: dt, year });
+        } else {
+          // matches the station New Entry form: Applicant, Letter, Subject, IO, Pendency, Date, Year
+          const io = ci.io>-1?String(r[ci.io]).trim():"";
+          if(!applicant||!letter||!subject||!io||!dt||!year){ errs.push("Row "+rowNo+": ફરજિયાત ફિલ્ડ ખૂટે છે (અરજદાર/પત્ર/વિષય/IO/તારીખ/વર્ષ)"); return; }
+          const pend = ci.pend>-1?String(r[ci.pend]).trim():"";
+          recs.push({ applicant, letter, subject, io, pend, date: dt, year });
+        }
+      });
+      const pv = $("importPreview");
+      if(!recs.length) throw "કોઈ માન્ય રો મળી નથી. " + errs.join("; ");
+      const cols = isAdmin
+        ? [["Forward to", a=>a.transferTo],["અરજદાર",a=>a.applicant],["પત્ર ક્રમાંક",a=>a.letter],["વિષય",a=>a.subject],["તારીખ",a=>fmtDate(a.date)],["વર્ષ",a=>a.year]]
+        : [["અરજદાર",a=>a.applicant],["પત્ર ક્રમાંક",a=>a.letter],["વિષય",a=>a.subject],["IO",a=>a.io],["Pendency",a=>a.pend],["તારીખ",a=>fmtDate(a.date)],["વર્ષ",a=>a.year]];
+      pv.innerHTML = `<div class="card"><p style="margin-bottom:10px"><b>${recs.length}</b> અરજી import માટે તૈયાર છે${errs.length? " · <span style='color:var(--danger)'>"+errs.length+" row skipped</span>":""}.</p>
+        ${errs.length? "<p style='font-size:12.5px;color:var(--danger);margin-bottom:10px'>"+errs.map(esc).join("<br>")+"</p>":""}
+        <div class="tablewrap" style="max-height:260px"><table><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead>
+        <tbody>${recs.slice(0,50).map(a=>`<tr>${cols.map(c=>`<td>${esc(c[1](a))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+        <div class="form-actions"><button class="btn btn-primary" id="confirmImport">✔ Import ${recs.length} applications</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('importPreview').innerHTML='';document.getElementById('excelFile').value=''">Cancel</button></div></div>`;
+      $("confirmImport").onclick = async () => {
+        $("confirmImport").disabled = true;
+        try{
+          const res = await api("/import","POST",{rows:recs});
+          pv.innerHTML=""; $("excelFile").value="";
+          const n=$("impNotice"); n.className = res.errors.length ? "notice err" : "notice ok";
+          n.textContent = "✔ "+res.imported+" અરજી import થઈ." + (res.errors.length? " ⚠ "+res.errors.length+" skipped: "+res.errors.slice(0,3).join("; "):"");
+          await loadApps(); renderAll();
+        }catch(err){ alert("Import failed: "+err.message); $("confirmImport").disabled=false; }
+      };
+      $("impNotice").className="notice";
+    }catch(err){
+      const n=$("impNotice"); n.className="notice err"; n.textContent="⚠ Import error: "+err;
+      $("importPreview").innerHTML="";
+    }
+  };
+  rd.readAsArrayBuffer(f);
+});
+</script>
+</body>
+</html>
